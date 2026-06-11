@@ -1,0 +1,33 @@
+:root { color-scheme: light; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+body { margin: 0; background: #f6f7f8; color: #1c1e21; }
+.wrap { max-width: 960px; margin: 0 auto; padding: 32px 16px; }
+h1 { margin: 0 0 4px; font-size: 26px; }
+.sub { color: #667; margin-top: 0; }
+
+.card { background: #fff; border: 1px solid #e3e5e8; border-radius: 10px; padding: 16px; margin: 12px 0; }
+.error { background: #fdecea; border: 1px solid #f5c6c2; color: #b3261e; border-radius: 8px; padding: 12px; margin: 12px 0; }
+.muted { color: #778; font-size: 13px; margin: 4px 0; }
+.badge { background: #eef1f4; border-radius: 6px; font-size: 12px; padding: 2px 8px; margin-left: 8px; }
+
+.drop { display: block; border: 2px dashed #b9c0c8; border-radius: 12px; padding: 56px 16px; text-align: center; cursor: pointer; background: #fff; }
+.drop.drag { border-color: #0a8f6c; background: #f0faf6; }
+
+.bar { height: 8px; background: #e8eaee; border-radius: 4px; overflow: hidden; }
+.bar > div { height: 100%; background: #0a8f6c; transition: width .4s; }
+
+.tabs { display: flex; gap: 8px; margin: 16px 0 4px; }
+.tabs button { border: 1px solid #d6dade; background: #fff; border-radius: 8px; padding: 8px 14px; cursor: pointer; }
+.tabs button.on { background: #0a8f6c; border-color: #0a8f6c; color: #fff; }
+.ghost { float: right; border: 1px solid #d6dade; background: #fff; border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.screen { display: flex; gap: 12px; }
+.screen img { width: 96px; border-radius: 8px; border: 1px solid #e3e5e8; object-fit: cover; }
+
+.table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.table th, .table td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #eef0f2; }
+.table tr.secure td { background: #2b2d31; color: #eee; }
+
+.finding { border-left: 4px solid #888; }
+.mermaid-box { overflow-x: auto; }
+pre { background: #f3f4f6; padding: 12px; border-radius: 8px; overflow-x: auto; font-size: 12px; }
