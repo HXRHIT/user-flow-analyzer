@@ -1,6 +1,6 @@
 """Pydantic schemas shared by the API and the pipeline."""
 from typing import Literal, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 JobStatus = Literal["queued", "extracting", "deduping", "recognizing", "analyzing", "done", "error"]
 

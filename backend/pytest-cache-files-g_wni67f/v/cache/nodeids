@@ -1,8 +1,0 @@
-[
-  "tests/test_pipeline.py::test_blank_detection",
-  "tests/test_pipeline.py::test_extract_and_dedup",
-  "tests/test_pipeline.py::test_heuristics_flags_long_dwell_and_backtrack",
-  "tests/test_pipeline.py::test_mermaid_output",
-  "tests/test_pipeline.py::test_probe_duration",
-  "tests/test_pipeline.py::test_transitions_and_backtracks"
-]

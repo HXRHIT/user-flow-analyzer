@@ -1,5 +1,4 @@
 """In-process job manager (no external queue — keeps the MVP easy to run)."""
-import json
 import threading
 import traceback
 import uuid
