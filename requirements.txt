@@ -1,0 +1,10 @@
+# Python dependencies for Streamlit Cloud deployment
+# Generated from backend/pyproject.toml — FastAPI/uvicorn excluded (not needed for Streamlit)
+
+streamlit>=1.35
+anthropic>=0.34
+pydantic>=2.6
+pillow>=10.0
+imagehash>=4.3
+
+# ffmpeg-python is NOT needed — we call the ffmpeg binary directly (via packages.txt)
