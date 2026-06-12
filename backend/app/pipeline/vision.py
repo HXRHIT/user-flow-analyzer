@@ -9,6 +9,7 @@ Provider is selected by config.LLM_PROVIDER ("gemini" | "anthropic").
 """
 import base64
 import json
+import re
 import time
 from pathlib import Path
 
@@ -108,6 +109,14 @@ def _generate_anthropic(batch: list[Frame]) -> str:
 
 # ── Clustering ─────────────────────────────────────────────────────────────────
 
+def _parse_ts(value) -> float:
+    """Parse a timestamp that may come back as 12.5, "12.5", "12.5s", or "[12.5s]"."""
+    if isinstance(value, (int, float)):
+        return float(value)
+    m = re.search(r"\d+(?:\.\d+)?", str(value))
+    return float(m.group()) if m else 0.0
+
+
 def _cluster(raw: list[dict], keyframes: list[Frame]) -> tuple[list[Screen], list[Event]]:
     screens: dict[str, Screen] = {}
     events: list[Event] = []
@@ -115,7 +124,7 @@ def _cluster(raw: list[dict], keyframes: list[Frame]) -> tuple[list[Screen], lis
 
     for item in raw:
         name = str(item.get("screen", "Unknown")).strip()
-        ts = float(item.get("t", 0))
+        ts = _parse_ts(item.get("t", 0))
         if name not in screens:
             f = frame_by_ts.get(round(ts, 1))
             screens[name] = Screen(

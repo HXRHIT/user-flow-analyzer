@@ -93,3 +93,13 @@ def test_heuristics_flags_long_dwell_and_backtrack():
     titles = " | ".join(f.title for f in findings)
     assert "Long dwell" in titles
     assert "Backtracking" in titles
+
+
+def test_parse_ts_tolerates_llm_format_variance():
+    from app.pipeline.vision import _parse_ts
+
+    assert _parse_ts(12.5) == 12.5
+    assert _parse_ts("0.0s") == 0.0
+    assert _parse_ts("12.5s") == 12.5
+    assert _parse_ts("[3s]") == 3.0
+    assert _parse_ts("n/a") == 0.0
