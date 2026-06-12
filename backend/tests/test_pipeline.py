@@ -103,3 +103,39 @@ def test_parse_ts_tolerates_llm_format_variance():
     assert _parse_ts("12.5s") == 12.5
     assert _parse_ts("[3s]") == 3.0
     assert _parse_ts("n/a") == 0.0
+
+
+def test_overlay_roundtrip_is_not_a_cycle_or_backtrack():
+    screens = [
+        Screen(id="S01", name="가입", type="form", representative_frame=0),
+        Screen(id="S02", name="약관 시트", type="sheet", representative_frame=1),
+    ]
+    events = [
+        Event(timestamp=0, screen_id="S01", action="start"),
+        Event(timestamp=2, screen_id="S02", action="tap"),   # open sheet
+        Event(timestamp=4, screen_id="S01", action="tap"),   # close sheet
+    ]
+    transitions = flow.build_transitions(events)
+    assert flow.detect_backtracks(transitions, screens) == []
+    m = flow.to_mermaid(screens, transitions)
+    assert "S01 --> S02" in m          # opening edge drawn
+    assert "S02 --> S01" not in m      # return edge suppressed
+    assert "-.->" not in m             # no backtrack styling
+
+
+def test_report_markdown_contains_all_sections():
+    from app.models import AnalysisResult, Finding
+    from app.pipeline.report import to_markdown
+
+    screens = [Screen(id="S01", name="홈", type="hub", representative_frame=0, appearances=[0.0])]
+    events = [Event(timestamp=0, screen_id="S01", action="start")]
+    r = AnalysisResult(
+        video_name="demo.mp4", duration=10, screens=screens, events=events,
+        transitions=[], mermaid="flowchart TD\n    S01[\"홈\"]",
+        findings=[Finding(severity="high", title="민감정보 노출", evidence="60s",
+                          suggestion="마스킹")],
+        summary="1 screen")
+    md = to_markdown(r)
+    for section in ("화면 흐름도", "화면 인벤토리", "행동 로그", "UX 진단",
+                    "```mermaid", "[HIGH] 민감정보 노출"):
+        assert section in md

@@ -21,7 +21,10 @@ from one app screen-recording, each labeled with its timestamp. For EVERY frame 
 a JSON object with:
 - "t": timestamp (copy from label)
 - "screen": short stable screen name (reuse the EXACT same name when the same logical
-  screen reappears, even if scrolled or with different banner content)
+  screen reappears, even if scrolled or with different banner content).
+  Name screens in the UI's own language ONLY — never translate or switch languages,
+  and never rename a screen that was already identified earlier in this recording.
+  Bottom sheets / modals / popups shown OVER a screen are their own "screen" with type "sheet".
 - "type": one of hub|list|detail|form|sheet|keypad|confirm|survey|loading|error|secure|other
 - "elements": up to 6 notable UI elements (buttons, inputs, tabs) as short strings
 - "action": user action inferred relative to the PREVIOUS frame:
@@ -40,23 +43,36 @@ def recognize(keyframes: list[Frame], progress_cb=None) -> tuple[list[Screen], l
     visible = [f for f in keyframes if not f.is_blank][: config.MAX_KEYFRAMES_TO_LLM]
     generate = _generate_gemini if config.LLM_PROVIDER == "gemini" else _generate_anthropic
     raw: list[dict] = []
+    known: list[str] = []  # screen names from earlier batches → keeps naming consistent
 
     for start in range(0, len(visible), BATCH_SIZE):
         batch = visible[start : start + BATCH_SIZE]
-        text = _with_retries(generate, batch)
+        text = _with_retries(generate, batch, known)
         text = text[text.find("[") : text.rfind("]") + 1]  # tolerate stray prose/code fences
-        raw.extend(json.loads(text))
+        items = json.loads(text)
+        raw.extend(items)
+        for it in items:
+            name = str(it.get("screen", "")).strip()
+            if name and name not in known:
+                known.append(name)
         if progress_cb:
             progress_cb(min(start + BATCH_SIZE, len(visible)), len(visible))
 
     return _cluster(raw, keyframes)
 
 
-def _with_retries(generate, batch) -> str:
+def _known_screens_note(known: list[str]) -> str:
+    if not known:
+        return ""
+    return ("Screens already identified earlier in this SAME recording — reuse these exact "
+            "names whenever the same screen appears again: " + json.dumps(known, ensure_ascii=False))
+
+
+def _with_retries(generate, batch, known) -> str:
     last_exc: Exception | None = None
     for attempt in range(MAX_RETRIES):
         try:
-            return generate(batch)
+            return generate(batch, known)
         except Exception as exc:  # noqa: BLE001 — retry rate limits / transient errors
             last_exc = exc
             if "429" in str(exc) or "RESOURCE_EXHAUSTED" in str(exc) or "rate" in str(exc).lower():
@@ -68,13 +84,15 @@ def _with_retries(generate, batch) -> str:
 
 # ── Providers ──────────────────────────────────────────────────────────────────
 
-def _generate_gemini(batch: list[Frame]) -> str:
+def _generate_gemini(batch: list[Frame], known: list[str]) -> str:
     """Google Gemini via google-genai SDK (free tier available at aistudio.google.com)."""
     from google import genai
     from google.genai import types
 
     client = genai.Client(api_key=config.GEMINI_API_KEY)
     contents: list = []
+    if note := _known_screens_note(known):
+        contents.append(note)
     for f in batch:
         contents.append(f"[frame @ {f.timestamp:.1f}s]")
         contents.append(types.Part.from_bytes(
@@ -87,12 +105,14 @@ def _generate_gemini(batch: list[Frame]) -> str:
     return (resp.text or "").strip()
 
 
-def _generate_anthropic(batch: list[Frame]) -> str:
+def _generate_anthropic(batch: list[Frame], known: list[str]) -> str:
     """Anthropic Claude (paid)."""
     import anthropic
 
     client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
     content: list[dict] = []
+    if note := _known_screens_note(known):
+        content.append({"type": "text", "text": note})
     for f in batch:
         content.append({"type": "text", "text": f"[frame @ {f.timestamp:.1f}s]"})
         data = base64.standard_b64encode(Path(f.path).read_bytes()).decode()

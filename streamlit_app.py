@@ -41,6 +41,7 @@ from app import config  # noqa: E402
 importlib.reload(config)
 
 from app.pipeline import run as run_pipeline  # noqa: E402
+from app.pipeline.report import to_markdown  # noqa: E402
 
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -155,6 +156,14 @@ if "result" in st.session_state:
         f"**{r.video_name}** · {r.duration:.0f}초 · "
         f"{len(r.screens)}개 화면 · {len(r.transitions)}개 전환 · {len(r.findings)}개 발견",
         icon="✅",
+    )
+
+    st.download_button(
+        "📄 보고서 다운로드 (Markdown)",
+        to_markdown(r).encode("utf-8"),
+        file_name=f"{Path(r.video_name).stem}-flow-report.md",
+        mime="text/markdown",
+        help="화면 흐름도(Mermaid)·인벤토리·행동 로그·UX 진단을 하나의 문서로 저장합니다.",
     )
 
     tab_flow, tab_screens, tab_events, tab_findings, tab_raw = st.tabs(

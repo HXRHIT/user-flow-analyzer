@@ -31,8 +31,8 @@ def heuristics(screens: list[Screen], events: list[Event],
                     suggestion="Check whether users hesitate here (unclear copy, too many options).",
                 ))
 
-    # 2) backtracking
-    for a, b in detect_backtracks(transitions):
+    # 2) backtracking (overlay round-trips like sheets/modals are excluded)
+    for a, b in detect_backtracks(transitions, screens):
         sa, sb = by_id.get(a), by_id.get(b)
         findings.append(Finding(
             severity="mid",
