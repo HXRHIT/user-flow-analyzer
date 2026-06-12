@@ -25,13 +25,15 @@ LLM 호출은 중복 제거된 키프레임에만 수행되어 비용을 최소�
 
 ## Quick start
 
-Requirements: Python ≥ 3.10, Node ≥ 18, ffmpeg, an [Anthropic API key](https://console.anthropic.com/).
+Requirements: Python ≥ 3.10, Node ≥ 18, ffmpeg, and an LLM API key — either a **free**
+[Google AI Studio key](https://aistudio.google.com/apikey) (Gemini, no credit card) or a paid
+[Anthropic key](https://console.anthropic.com/) (Claude).
 
 ```bash
 # backend
 cd backend
 pip install -e ".[dev]"
-export ANTHROPIC_API_KEY=sk-ant-...
+export GEMINI_API_KEY=...        # free tier (or ANTHROPIC_API_KEY for Claude)
 uvicorn app.main:app --reload --port 8000
 
 # frontend (separate terminal)
@@ -46,8 +48,10 @@ Single-process deployment: `npm run build` in `frontend/`, then FastAPI serves `
 
 | env var | default | description |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | — | required for screen recognition |
-| `UFA_VISION_MODEL` | `claude-sonnet-4-6` | vision model id |
+| `GEMINI_API_KEY` | — | free-tier key from aistudio.google.com (preferred) |
+| `ANTHROPIC_API_KEY` | — | alternative: paid Claude key |
+| `UFA_LLM_PROVIDER` | auto | `gemini` \| `anthropic` (auto-detected from keys) |
+| `UFA_VISION_MODEL` | per provider | `gemini-flash-latest` / `claude-sonnet-4-6` |
 | `UFA_DATA_DIR` | `./data` | uploads & job artifacts |
 | `UFA_MAX_UPLOAD_MB` | `500` | upload size limit |
 | `UFA_SCENE_THRESHOLD` | `0.18` | ffmpeg scene-change sensitivity |

@@ -20,7 +20,7 @@ app.add_middleware(
 
 @app.get("/api/health")
 def health():
-    return {"ok": True, "llm_configured": bool(config.ANTHROPIC_API_KEY)}
+    return {"ok": True, "provider": config.LLM_PROVIDER, "llm_configured": bool(config.llm_api_key())}
 
 
 @app.post("/api/analyses")
@@ -28,8 +28,9 @@ async def create_analysis(file: UploadFile):
     suffix = Path(file.filename or "video.mp4").suffix.lower()
     if suffix not in config.ALLOWED_EXTENSIONS:
         raise HTTPException(415, f"Unsupported format {suffix}. Allowed: {sorted(config.ALLOWED_EXTENSIONS)}")
-    if not config.ANTHROPIC_API_KEY:
-        raise HTTPException(503, "ANTHROPIC_API_KEY is not configured on the server.")
+    if not config.llm_api_key():
+        raise HTTPException(503, f"No API key configured for provider '{config.LLM_PROVIDER}'. "
+                                 "Set GEMINI_API_KEY (free tier) or ANTHROPIC_API_KEY.")
 
     dest = config.UPLOAD_DIR / f"{Path(file.filename).stem[:40]}{suffix}"
     size = 0

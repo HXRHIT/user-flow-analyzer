@@ -2,13 +2,13 @@
 
 Deploy on Streamlit Community Cloud:
   1. Set main file to: streamlit_app.py
-  2. Add ANTHROPIC_API_KEY to Streamlit secrets (Settings → Secrets)
+  2. Add GEMINI_API_KEY (free — aistudio.google.com) or ANTHROPIC_API_KEY to Streamlit secrets
   3. Add packages.txt at repo root with: ffmpeg
 
 Requires:
   - requirements.txt  (Python deps — see file at repo root)
   - packages.txt      (system packages — ffmpeg)
-  - ANTHROPIC_API_KEY in Streamlit secrets or env
+  - GEMINI_API_KEY (free tier) or ANTHROPIC_API_KEY in Streamlit secrets or env
 """
 import os
 import sys
@@ -22,10 +22,11 @@ import streamlit as st  # noqa: E402
 
 # ── Secrets / env must be wired BEFORE importing app.config ──────────────────
 try:
-    if "ANTHROPIC_API_KEY" in st.secrets:
-        os.environ["ANTHROPIC_API_KEY"] = st.secrets["ANTHROPIC_API_KEY"]
+    for _key in ("GEMINI_API_KEY", "GOOGLE_API_KEY", "ANTHROPIC_API_KEY"):
+        if _key in st.secrets:
+            os.environ[_key] = st.secrets[_key]
 except FileNotFoundError:
-    pass  # no secrets.toml locally → fall back to plain env var
+    pass  # no secrets.toml locally → fall back to plain env vars
 
 # Use a temp directory that persists for the process lifetime
 _DATA_DIR = Path(tempfile.gettempdir()) / "ufa-data"
@@ -49,10 +50,12 @@ st.set_page_config(
 st.title("🎬 User Flow Analyzer")
 st.caption("앱 화면 녹화 영상을 업로드하면 user flow를 자동 분석합니다.")
 
-if not config.ANTHROPIC_API_KEY:
+if not config.llm_api_key():
     st.error(
-        "**ANTHROPIC_API_KEY** 가 설정되지 않았습니다.  \n"
-        "Streamlit Cloud → App Settings → Secrets 에 `ANTHROPIC_API_KEY = \"sk-ant-...\"` 를 추가해 주세요.",
+        "LLM API 키가 설정되지 않았습니다.  \n"
+        "**무료**: [Google AI Studio](https://aistudio.google.com/apikey)에서 키 발급 후 "
+        "Streamlit Cloud → App Settings → Secrets 에 `GEMINI_API_KEY = \"...\"` 추가  \n"
+        "또는 유료 Claude: `ANTHROPIC_API_KEY = \"sk-ant-...\"`",
         icon="🔐",
     )
     st.stop()
@@ -118,7 +121,7 @@ if uploaded and run_btn:
     stage_labels = {
         "extracting":  "① 프레임 추출 중…",
         "deduping":    "② 키프레임 선별 중…",
-        "recognizing": "③ 화면 인식 중 (Claude Vision)…",
+        "recognizing": "③ 화면 인식 중 (AI Vision)…",
         "analyzing":   "④ 흐름도 · 진단 생성 중…",
         "done":        "✅ 분석 완료!",
     }

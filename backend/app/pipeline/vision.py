@@ -1,15 +1,16 @@
-"""Step 3 — screen recognition with the Claude vision API.
+"""Step 3 — screen recognition with a vision LLM (Gemini free tier or Claude).
 
 Keyframes are sent in timestamp order (batched) and the model returns, per frame:
 screen name, screen type, notable UI elements, the inferred user action since the
 previous frame, and whether sensitive data (account numbers, balances, names) is
 visible. Frames sharing the same screen name are clustered into unique screens.
+
+Provider is selected by config.LLM_PROVIDER ("gemini" | "anthropic").
 """
 import base64
 import json
+import time
 from pathlib import Path
-
-import anthropic
 
 from .. import config
 from ..models import Event, Frame, Screen
@@ -30,38 +31,82 @@ a JSON object with:
 Respond with ONLY a JSON array, no prose. Use the recording's UI language for names."""
 
 BATCH_SIZE = 10
-
-
-def _img_block(path: str) -> dict:
-    data = base64.standard_b64encode(Path(path).read_bytes()).decode()
-    return {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": data}}
+MAX_RETRIES = 3
+RETRY_WAIT_SEC = 20  # free tiers are rate-limited per minute; back off and retry
 
 
 def recognize(keyframes: list[Frame], progress_cb=None) -> tuple[list[Screen], list[Event]]:
-    client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
     visible = [f for f in keyframes if not f.is_blank][: config.MAX_KEYFRAMES_TO_LLM]
+    generate = _generate_gemini if config.LLM_PROVIDER == "gemini" else _generate_anthropic
     raw: list[dict] = []
 
     for start in range(0, len(visible), BATCH_SIZE):
         batch = visible[start : start + BATCH_SIZE]
-        content: list[dict] = []
-        for f in batch:
-            content.append({"type": "text", "text": f"[frame @ {f.timestamp:.1f}s]"})
-            content.append(_img_block(f.path))
-        msg = client.messages.create(
-            model=config.VISION_MODEL,
-            max_tokens=4096,
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": content}],
-        )
-        text = msg.content[0].text.strip()
-        text = text[text.find("[") : text.rfind("]") + 1]  # tolerate stray prose
+        text = _with_retries(generate, batch)
+        text = text[text.find("[") : text.rfind("]") + 1]  # tolerate stray prose/code fences
         raw.extend(json.loads(text))
         if progress_cb:
             progress_cb(min(start + BATCH_SIZE, len(visible)), len(visible))
 
     return _cluster(raw, keyframes)
 
+
+def _with_retries(generate, batch) -> str:
+    last_exc: Exception | None = None
+    for attempt in range(MAX_RETRIES):
+        try:
+            return generate(batch)
+        except Exception as exc:  # noqa: BLE001 — retry rate limits / transient errors
+            last_exc = exc
+            if "429" in str(exc) or "RESOURCE_EXHAUSTED" in str(exc) or "rate" in str(exc).lower():
+                time.sleep(RETRY_WAIT_SEC * (attempt + 1))
+                continue
+            raise
+    raise RuntimeError(f"LLM call failed after {MAX_RETRIES} retries: {last_exc}")
+
+
+# ── Providers ──────────────────────────────────────────────────────────────────
+
+def _generate_gemini(batch: list[Frame]) -> str:
+    """Google Gemini via google-genai SDK (free tier available at aistudio.google.com)."""
+    from google import genai
+    from google.genai import types
+
+    client = genai.Client(api_key=config.GEMINI_API_KEY)
+    contents: list = []
+    for f in batch:
+        contents.append(f"[frame @ {f.timestamp:.1f}s]")
+        contents.append(types.Part.from_bytes(
+            data=Path(f.path).read_bytes(), mime_type="image/png"))
+    resp = client.models.generate_content(
+        model=config.VISION_MODEL,
+        contents=contents,
+        config=types.GenerateContentConfig(system_instruction=SYSTEM_PROMPT),
+    )
+    return (resp.text or "").strip()
+
+
+def _generate_anthropic(batch: list[Frame]) -> str:
+    """Anthropic Claude (paid)."""
+    import anthropic
+
+    client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
+    content: list[dict] = []
+    for f in batch:
+        content.append({"type": "text", "text": f"[frame @ {f.timestamp:.1f}s]"})
+        data = base64.standard_b64encode(Path(f.path).read_bytes()).decode()
+        content.append({"type": "image", "source": {
+            "type": "base64", "media_type": "image/png", "data": data}})
+    msg = client.messages.create(
+        model=config.VISION_MODEL,
+        max_tokens=4096,
+        system=SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": content}],
+    )
+    return msg.content[0].text.strip()
+
+
+# ── Clustering ─────────────────────────────────────────────────────────────────
 
 def _cluster(raw: list[dict], keyframes: list[Frame]) -> tuple[list[Screen], list[Event]]:
     screens: dict[str, Screen] = {}
@@ -71,11 +116,10 @@ def _cluster(raw: list[dict], keyframes: list[Frame]) -> tuple[list[Screen], lis
     for item in raw:
         name = str(item.get("screen", "Unknown")).strip()
         ts = float(item.get("t", 0))
-        sid = f"S{list(screens).index(name) + 1:02d}" if name in screens else f"S{len(screens) + 1:02d}"
         if name not in screens:
             f = frame_by_ts.get(round(ts, 1))
             screens[name] = Screen(
-                id=sid, name=name, type=item.get("type", "other"),
+                id=f"S{len(screens) + 1:02d}", name=name, type=item.get("type", "other"),
                 elements=[str(e) for e in item.get("elements", [])][:6],
                 representative_frame=f.index if f else 0,
             )

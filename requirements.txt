@@ -3,7 +3,8 @@
 # FastAPI/uvicorn excluded — not needed for the Streamlit entry point.
 
 streamlit>=1.41
-anthropic>=0.52
+google-genai>=1.0
+anthropic>=0.52  # optional — only if using Claude instead of Gemini
 pydantic>=2.10
 pillow>=11.1
 imagehash>=4.3
