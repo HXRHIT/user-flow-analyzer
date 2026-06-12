@@ -32,7 +32,14 @@ except FileNotFoundError:
 _DATA_DIR = Path(tempfile.gettempdir()) / "ufa-data"
 os.environ.setdefault("UFA_DATA_DIR", str(_DATA_DIR))
 
+import importlib  # noqa: E402
+
 from app import config  # noqa: E402
+
+# Re-read env on every rerun so secrets added after first boot are picked up
+# without requiring a full app reboot (config reads env at import time).
+importlib.reload(config)
+
 from app.pipeline import run as run_pipeline  # noqa: E402
 
 # ── Page config ───────────────────────────────────────────────────────────────
